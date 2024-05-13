@@ -223,7 +223,7 @@ impl DataDogLogger {
             .join(",");
 
         if let Some(existing_tags) = &log.ddtags {
-            log.ddtags = Some(format!("{} {}", existing_tags, formatted_tags));
+            log.ddtags = Some(format!("{},{}", existing_tags, formatted_tags));
         } else {
             log.ddtags = Some(formatted_tags);
         }
