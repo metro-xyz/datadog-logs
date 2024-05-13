@@ -60,3 +60,12 @@ impl AsyncDataDogClient for DataDogClientStub {
         }
     }
 }
+
+#[macro_export]
+macro_rules! tags {
+    ($($key:expr => $value:expr),*) => {{
+        let mut map = std::collections::HashMap::new();
+        $(map.insert($key, $value.to_string());)*
+        map
+    }};
+}

@@ -205,7 +205,7 @@ impl DataDogLogger {
     pub fn log_with_tags<T: Display>(
         &self,
         message: T,
-        tags: HashMap<String, String>,
+        tags: HashMap<&str, String>,
         level: DataDogLogLevel,
     ) {
         let mut log = DataDogLog {
