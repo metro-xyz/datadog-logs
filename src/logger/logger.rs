@@ -9,7 +9,7 @@ use flume::{bounded, unbounded, Receiver, Sender};
 #[cfg(feature = "nonblocking")]
 use futures::Future;
 use log::{LevelFilter, Log, Metadata, Record};
-use std::{fmt::Display, ops::Drop, thread};
+use std::{collections::HashMap, fmt::Display, ops::Drop, thread};
 
 #[derive(Debug)]
 /// Logger that logs directly to DataDog via HTTP(S)
@@ -164,6 +164,71 @@ impl DataDogLogger {
             ddsource: self.config.source.clone(),
             level: level.to_string(),
         };
+
+        if let Some(ref sender) = self.logsender {
+            match sender.try_send(log) {
+                Ok(()) => {
+                    // nothing
+                }
+                Err(e) => {
+                    if let Some(ref selflog) = self.selflogsd {
+                        selflog.try_send(e.to_string()).unwrap_or_default();
+                    }
+                }
+            }
+        }
+    }
+
+    /// Sends log to DataDog thread or task.
+    ///
+    /// This function does not invoke any IO operation by itself. Instead it sends messages to logger thread or task using channels.
+    /// Therefore it is quite lightweight.
+    ///
+    /// ## Examples
+    ///
+    ///```rust
+    ///use datadog_logs::{config::DataDogConfig, logger::{DataDogLogger, DataDogLogLevel}, client::HttpDataDogClient};
+    ///
+    ///let config = DataDogConfig::default();
+    ///let client = HttpDataDogClient::new(&config).unwrap();
+    ///let logger = DataDogLogger::blocking(client, config);
+    ///
+    ///let tags = {
+    ///  let mut tags = std::collections::HashMap::new();
+    ///  tags.insert("tag1".to_string(), "value1".to_string());
+    ///  tags.insert("tag2".to_string(), "value2".to_string());
+    ///  tags.insert("block_number".to_string(), 23123423.to_string());
+    ///  tags
+    ///};
+    ///logger.log_with_tags("message", tags, DataDogLogLevel::Error);
+    ///```
+    pub fn log_with_tags<T: Display>(
+        &self,
+        message: T,
+        tags: HashMap<String, String>,
+        level: DataDogLogLevel,
+    ) {
+        let mut log = DataDogLog {
+            message: message.to_string(),
+            ddtags: self.config.tags.clone(),
+            service: self.config.service.clone().unwrap_or_default(),
+            host: self.config.hostname.clone().unwrap_or_default(),
+            ddsource: self.config.source.clone(),
+            level: level.to_string(),
+        };
+
+        // Format the provided tags and merge with the existing ones
+        let formatted_tags = tags
+            .into_iter()
+            .map(|(key, value)| format!("{}:{}", key, value))
+            .collect::<Vec<String>>()
+            .join(" ");
+
+        if let Some(existing_tags) = &log.ddtags {
+            log.ddtags = Some(format!("{} {}", existing_tags, formatted_tags));
+        } else {
+            log.ddtags = Some(formatted_tags);
+        }
 
         if let Some(ref sender) = self.logsender {
             match sender.try_send(log) {

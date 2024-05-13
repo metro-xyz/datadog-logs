@@ -31,6 +31,31 @@ async fn test_one_message_sent() {
 }
 
 #[tokio::test]
+async fn test_one_tagged_message_sent() {
+    let (logger, receiver) = create_default_logger();
+
+    let tags = {
+        let mut tags = std::collections::HashMap::new();
+        tags.insert("tag1".to_string(), "value1".to_string());
+        tags.insert("tag2".to_string(), "value2".to_string());
+        tags.insert("block_number".to_string(), 23123423.to_string());
+        tags
+    };
+
+    logger.log_with_tags(
+        "test message with tags",
+        tags,
+        DataDogLogLevel::Informational,
+    );
+
+    std::mem::drop(logger);
+
+    let messages: Vec<DataDogLog> = receiver.stream().collect().await;
+    println!("{:?}", messages);
+    assert_eq!(1, messages.len());
+}
+
+#[tokio::test]
 async fn test_many_messages_sent() {
     let (logger, receiver) = create_default_logger();
 
@@ -107,6 +132,7 @@ fn create_default_logger() -> (DataDogLogger, Receiver<DataDogLog>) {
         utils::DataDogClientStub::new(sender),
         DataDogConfig {
             enable_self_log: true,
+            tags: Some(format!("env:test")),
             ..Default::default()
         },
     );
