@@ -193,13 +193,11 @@ impl DataDogLogger {
     ///let client = HttpDataDogClient::new(&config).unwrap();
     ///let logger = DataDogLogger::blocking(client, config);
     ///
-    ///let tags = {
-    ///  let mut tags = std::collections::HashMap::new();
-    ///  tags.insert("tag1".to_string(), "value1".to_string());
-    ///  tags.insert("tag2".to_string(), "value2".to_string());
-    ///  tags.insert("block_number".to_string(), 23123423.to_string());
-    ///  tags
-    ///};
+    ///let tags = tags!(
+    ///    "tag1" => "value1",
+    ///    "tag2" => "value2",
+    ///    "block_number" => 23123423
+    ///);
     ///logger.log_with_tags("message", tags, DataDogLogLevel::Error);
     ///```
     pub fn log_with_tags<T: Display>(
@@ -222,7 +220,7 @@ impl DataDogLogger {
             .into_iter()
             .map(|(key, value)| format!("{}:{}", key, value))
             .collect::<Vec<String>>()
-            .join(" ");
+            .join(",");
 
         if let Some(existing_tags) = &log.ddtags {
             log.ddtags = Some(format!("{} {}", existing_tags, formatted_tags));
